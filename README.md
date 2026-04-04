@@ -67,7 +67,7 @@ cp .env.example .env.local
 # Run the Vite development server
 npm run dev
 ```
-Access the application at `http://localhost:5173`.
+Access the application at `http://your-ip:5173`.
 
 ---
 
