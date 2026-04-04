@@ -2,16 +2,18 @@ module.exports = {
   apps: [
     {
       name: "hms-backend",
-      script: "./dist/server.js",
+      script: "node",
+      args: "./dist/server.js",
       cwd: "./server",
+      node_args: "--experimental-specifier-resolution=node",
       env: {
         NODE_ENV: "production",
       }
     },
     {
       name: "hms-frontend",
-      script: "./node_modules/serve/build/main.js",
-      args: "-s dist -l 3000",
+      script: "node",
+      args: "./node_modules/serve/build/main.js -s dist -l 3000",
       cwd: ".",
       env: {
         NODE_ENV: "production",

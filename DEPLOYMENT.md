@@ -244,6 +244,143 @@ The system is now running!
 - `pm2 save`: Save current processes so PM2 can resurrect them on machine reboot
 - `pm2 restart ecosystem.config.cjs`: Restart the servers after updating code
 
+### 5. Configure for Local Network Access
+To allow other devices on the same WiFi/LAN to access the app, find the host PC's local IP address:
+```powershell
+ipconfig
+```
+Look for the **IPv4 Address** under your active WiFi or Ethernet adapter (e.g., `192.168.1.50`).
+
+Update the frontend API URL in `.env.local` (project root):
+```env
+VITE_API_URL=http://<YOUR_PC_IP>:5000/api
+```
+
+Then rebuild the frontend so the new IP is baked in:
+```bash
+npm run build
+```
+
+Restart PM2:
+```bash
+pm2 restart ecosystem.config.cjs
+```
+
+Other devices on the same network can now access:
+- **Frontend**: `http://<YOUR_PC_IP>:3000`
+- **Backend API**: `http://<YOUR_PC_IP>:5000/api`
+
+---
+
+## Deploying on a Different PC / Network
+
+If you need to set up this application on a **different company PC** (e.g., connected to a different WiFi network with a different IP), follow these steps:
+
+### Step 1: Install Prerequisites
+Ensure the following are installed on the new PC:
+- **Node.js 18+** (LTS) — [https://nodejs.org](https://nodejs.org)
+- **MySQL 8.0+** — [https://dev.mysql.com/downloads/](https://dev.mysql.com/downloads/)
+- **PM2** (global):
+  ```powershell
+  npm install -g pm2
+  ```
+
+### Step 2: Copy the Project
+Copy the entire `Hourly_Monitoring_System` folder to the new PC (via USB, network share, or git clone).
+
+### Step 3: Install Dependencies
+```powershell
+cd Hourly_Monitoring_System
+
+# Install frontend dependencies
+npm install
+
+# Install backend dependencies
+cd server
+npm install
+cd ..
+```
+
+### Step 4: Set Up the Database
+1. Open MySQL and create the database:
+   ```sql
+   CREATE DATABASE hms_system;
+   ```
+2. Configure `server/.env` with the new PC's MySQL credentials:
+   ```env
+   PORT=5000
+   DB_HOST=localhost
+   DB_USER=root
+   DB_PASSWORD=<your_mysql_password>
+   DB_NAME=hms_system
+   DB_PORT=3306
+   NODE_ENV=production
+   ```
+3. Run the database migration:
+   ```powershell
+   cd server
+   npm run migrate
+   cd ..
+   ```
+
+### Step 5: Find the New PC's IP Address
+```powershell
+ipconfig
+```
+Find the **IPv4 Address** under the active network adapter. For example: `192.168.X.X` or `10.0.X.X`.
+
+### Step 6: Update Frontend API URL
+Edit `.env.local` in the project root with the **new PC's IP**:
+```env
+VITE_API_URL=http://<NEW_PC_IP>:5000/api
+```
+> **Important**: This URL gets baked into the frontend at build time. You **must** rebuild the frontend whenever the IP changes.
+
+### Step 7: Build Everything
+```powershell
+# Build the backend
+cd server
+npm run build
+cd ..
+
+# Build the frontend (with new IP baked in)
+npm run build
+```
+
+### Step 8: Start with PM2
+```powershell
+pm2 start ecosystem.config.cjs
+pm2 save
+```
+
+### Step 9: Allow Through Windows Firewall
+If other devices on the network can't connect, you may need to allow ports 3000 and 5000 through Windows Firewall:
+```powershell
+# Run PowerShell as Administrator
+netsh advfirewall firewall add rule name="HMS Frontend" dir=in action=allow protocol=tcp localport=3000
+netsh advfirewall firewall add rule name="HMS Backend" dir=in action=allow protocol=tcp localport=5000
+```
+
+### Step 10: Verify
+From the new PC itself:
+- Open browser → `http://localhost:3000` — Frontend should load
+- Open browser → `http://localhost:5000/health` — Should return `{"status":"ok"}`
+
+From another device on the same network:
+- Open browser → `http://<NEW_PC_IP>:3000` — Frontend should load
+- The app should be fully functional
+
+### Quick Reference: When IP Changes
+If the PC's IP address changes (e.g., DHCP reassignment, different WiFi):
+1. Find new IP: `ipconfig`
+2. Update `.env.local`: `VITE_API_URL=http://<NEW_IP>:5000/api`
+3. Rebuild frontend: `npm run build`
+4. Restart PM2: `pm2 restart ecosystem.config.cjs`
+
+> **Tip**: To avoid IP changes, configure a **static IP** on the host PC through Windows Network Settings → WiFi → IP Assignment → Manual.
+
+---
+
 ## Testing the System
 
 ### 1. Verify Backend
