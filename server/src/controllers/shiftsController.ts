@@ -50,7 +50,7 @@ export const getShiftById = async (req: Request, res: Response) => {
     const entries = await query('SELECT * FROM hourly_entries WHERE shift_log_id = ? ORDER BY created_at', [id]) as any[];
 
     // Get loss details for each entry
-    const entriesWithLoss = await Promise.all(
+    let entriesWithLoss = await Promise.all(
       entries.map(async (entry) => {
         const lossData = await query('SELECT * FROM loss_details WHERE hourly_entry_id = ?', [entry.id]) as any[];
         return {
@@ -59,6 +59,17 @@ export const getShiftById = async (req: Request, res: Response) => {
         };
       })
     );
+
+    // Sort entries according to the chronological time slot sequence
+    const timeSlots = getTimeSlots(log.shift_id);
+    entriesWithLoss.sort((a, b) => {
+      const indexA = timeSlots.indexOf(a.time_slot);
+      const indexB = timeSlots.indexOf(b.time_slot);
+      if (indexA === -1 && indexB === -1) return 0;
+      if (indexA === -1) return 1;
+      if (indexB === -1) return -1;
+      return indexA - indexB;
+    });
 
     // Get summary
     const summaries = await query('SELECT * FROM production_summary WHERE shift_log_id = ?', [id]) as any[];
@@ -148,19 +159,19 @@ export const createOrGetShift = async (req: Request, res: Response) => {
 function getTimeSlots(shiftId: number): string[] {
   const slots: { [key: number]: string[] } = {
     1: [
-      "06:54 - 07:54", "07:54 - 08:54", "08:54 - 09:54",
-      "09:54 - 10:54", "10:54 - 11:54", "11:54 - 12:54",
-      "12:54 - 13:54", "13:54 - 14:54", "14:54 - 15:24"
+      "06:54 AM - 07:54 AM", "07:54 AM - 08:54 AM", "08:54 AM - 09:54 AM",
+      "09:54 AM - 10:54 AM", "10:54 AM - 11:54 AM", "11:54 AM - 12:54 PM",
+      "12:54 PM - 01:54 PM", "01:54 PM - 02:54 PM", "02:54 PM - 03:24 PM"
     ],
     2: [
-      "15:24 - 16:24", "16:24 - 17:24", "17:24 - 18:24",
-      "18:24 - 19:24", "19:24 - 20:24", "20:24 - 21:24",
-      "21:24 - 22:24", "22:24 - 23:36"
+      "03:24 PM - 04:24 PM", "04:24 PM - 05:24 PM", "05:24 PM - 06:24 PM",
+      "06:24 PM - 07:24 PM", "07:24 PM - 08:24 PM", "08:24 PM - 09:24 PM",
+      "09:24 PM - 10:24 PM", "10:24 PM - 11:36 PM"
     ],
     3: [
-      "23:36 - 00:36", "00:36 - 01:36", "01:36 - 02:36",
-      "02:36 - 03:36", "03:36 - 04:36", "04:36 - 05:36",
-      "05:36 - 06:36", "06:36 - 06:54"
+      "11:36 PM - 12:36 AM", "12:36 AM - 01:36 AM", "01:36 AM - 02:36 AM",
+      "02:36 AM - 03:36 AM", "03:36 AM - 04:36 AM", "04:36 AM - 05:36 AM",
+      "05:36 AM - 06:36 AM", "06:36 AM - 06:54 AM"
     ],
   };
   return slots[shiftId] || [];

@@ -10,34 +10,34 @@ export const SHIFTS: ShiftConfig[] = [
   {
     id: 1,
     name: "1st Shift",
-    startTime: "06:54",
-    endTime: "15:24",
+    startTime: "06:54 AM",
+    endTime: "03:24 PM",
     timeSlots: [
-      "06:54 - 07:54", "07:54 - 08:54", "08:54 - 09:54",
-      "09:54 - 10:54", "10:54 - 11:54", "11:54 - 12:54",
-      "12:54 - 13:54", "13:54 - 14:54", "14:54 - 15:24"
+      "06:54 AM - 07:54 AM", "07:54 AM - 08:54 AM", "08:54 AM - 09:54 AM",
+      "09:54 AM - 10:54 AM", "10:54 AM - 11:54 AM", "11:54 AM - 12:54 PM",
+      "12:54 PM - 01:54 PM", "01:54 PM - 02:54 PM", "02:54 PM - 03:24 PM"
     ],
   },
   {
     id: 2,
     name: "2nd Shift",
-    startTime: "15:24",
-    endTime: "23:36",
+    startTime: "03:24 PM",
+    endTime: "11:36 PM",
     timeSlots: [
-      "15:24 - 16:24", "16:24 - 17:24", "17:24 - 18:24",
-      "18:24 - 19:24", "19:24 - 20:24", "20:24 - 21:24",
-      "21:24 - 22:24", "22:24 - 23:36"
+      "03:24 PM - 04:24 PM", "04:24 PM - 05:24 PM", "05:24 PM - 06:24 PM",
+      "06:24 PM - 07:24 PM", "07:24 PM - 08:24 PM", "08:24 PM - 09:24 PM",
+      "09:24 PM - 10:24 PM", "10:24 PM - 11:36 PM"
     ],
   },
   {
     id: 3,
     name: "3rd Shift",
-    startTime: "23:36",
-    endTime: "06:54",
+    startTime: "11:36 PM",
+    endTime: "06:54 AM",
     timeSlots: [
-      "23:36 - 00:36", "00:36 - 01:36", "01:36 - 02:36",
-      "02:36 - 03:36", "03:36 - 04:36", "04:36 - 05:36",
-      "05:36 - 06:36", "06:36 - 06:54"
+      "11:36 PM - 12:36 AM", "12:36 AM - 01:36 AM", "01:36 AM - 02:36 AM",
+      "02:36 AM - 03:36 AM", "03:36 AM - 04:36 AM", "04:36 AM - 05:36 AM",
+      "05:36 AM - 06:36 AM", "06:36 AM - 06:54 AM"
     ],
   },
 ];
@@ -102,6 +102,10 @@ export interface ProductionSummary {
   stdProdHr: number | null;
   actualCT: number | null;
   actualProdHr: number | null;
+  presentOperators: string;
+  absentOperators: string;
+  totalLossQty: number | null;
+  totalLossHrs: number | null;
 }
 
 export interface ShiftLog {
@@ -153,5 +157,6 @@ export function createEmptySummary(): ProductionSummary {
     qualityStatus: "", shiftEngineerApproval: "", managerApproval: "",
     machineName: "", scrapQty: null, bNMachine: "", stdCT: null,
     stdProdHr: null, actualCT: null, actualProdHr: null,
+    presentOperators: "", absentOperators: "", totalLossQty: null, totalLossHrs: null,
   };
 }

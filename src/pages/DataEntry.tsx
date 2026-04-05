@@ -106,6 +106,10 @@ export default function DataEntryPage() {
               onEntryChange={handleEntryChange}
               onEntryBlur={handleEntryBlur}
               saveStatus={saveStatus}
+              summary={log.summary}
+              onSummaryChange={handleSummaryChange}
+              onSummaryBlur={handleSummaryBlur}
+              shiftId={shiftId}
             />
           </div>
 

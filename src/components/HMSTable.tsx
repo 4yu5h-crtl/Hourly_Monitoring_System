@@ -1,5 +1,5 @@
 import React from "react";
-import { HourlyEntry, SaveStatus } from "@/types/hms";
+import { HourlyEntry, SaveStatus, ProductionSummary } from "@/types/hms";
 import { HMSRow } from "./HMSRow";
 
 interface HMSTableProps {
@@ -8,9 +8,19 @@ interface HMSTableProps {
   onEntryBlur?: (index: number) => void;
   saveStatus: SaveStatus;
   readOnly?: boolean;
+  summary?: ProductionSummary;
+  onSummaryChange?: (summary: ProductionSummary) => void;
+  onSummaryBlur?: () => void;
+  shiftId?: number;
 }
 
-export function HMSTable({ entries, onEntryChange, onEntryBlur, saveStatus, readOnly }: HMSTableProps) {
+export function HMSTable({ 
+  entries, onEntryChange, onEntryBlur, saveStatus, readOnly,
+  summary, onSummaryChange, onSummaryBlur, shiftId = 1
+}: HMSTableProps) {
+
+  const shiftHours = shiftId === 1 ? "8.5" : shiftId === 2 ? "8.2" : "7.3";
+
   return (
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Table header */}
@@ -38,6 +48,63 @@ export function HMSTable({ entries, onEntryChange, onEntryBlur, saveStatus, read
           readOnly={readOnly}
         />
       ))}
+
+      {/* Summary Bottom Rows */}
+      {summary && onSummaryChange && (
+        <div className="text-sm border-t-2 border-primary/20">
+          {/* Row 1: Total Hours */}
+          <div className="grid grid-cols-[100px_90px_90px_90px_1fr_140px] gap-0 border-b border-border items-stretch">
+            <div className="px-2 py-1.5 flex items-center border-r border-border bg-secondary/30">
+              <span className="text-xs font-bold text-black">Total @ {shiftHours} hrs</span>
+            </div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            
+            <div className="px-1.5 py-1.5 border-r border-border flex items-center gap-2">
+              <span className="whitespace-nowrap text-xs font-semibold">Present Operators (Token No.):</span>
+              <input
+                className="flex-1 bg-input border border-border rounded px-2 py-1 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                value={summary.presentOperators || ""}
+                onChange={(e) => onSummaryChange({ ...summary, presentOperators: e.target.value })}
+                onBlur={onSummaryBlur}
+                disabled={readOnly}
+                placeholder="e.g. 2014, 2030, 2105"
+              />
+            </div>
+            
+            <div className="px-1.5 py-1.5 flex items-center gap-2 bg-secondary/10">
+              {/* Empty space for LOSS DETAILS column */}
+            </div>
+          </div>
+
+          {/* Row 2: RHrs */}
+          <div className="grid grid-cols-[100px_90px_90px_90px_1fr_140px] gap-0 border-b border-border items-stretch">
+            <div className="px-2 py-1.5 flex items-center border-r border-border bg-secondary/30">
+              <span className="text-xs font-bold text-black">RHrs.</span>
+            </div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            <div className="px-1.5 py-1.5 border-r border-border bg-secondary/10"></div>
+            
+            <div className="px-1.5 py-1.5 border-r border-border flex items-center gap-2">
+              <span className="whitespace-nowrap text-xs font-semibold">Absent Operators (Token No.):</span>
+              <input
+                className="flex-1 bg-input border border-border rounded px-2 py-1 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                value={summary.absentOperators || ""}
+                onChange={(e) => onSummaryChange({ ...summary, absentOperators: e.target.value })}
+                onBlur={onSummaryBlur}
+                disabled={readOnly}
+                placeholder="e.g. 2045, 2011"
+              />
+            </div>
+            
+            <div className="px-1.5 py-1.5 flex items-center gap-2 bg-secondary/10">
+              {/* Empty space for LOSS DETAILS column */}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

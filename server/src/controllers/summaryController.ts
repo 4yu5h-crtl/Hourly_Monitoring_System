@@ -22,7 +22,8 @@ export const updateSummary = async (req: Request, res: Response) => {
       const fields = [
         'total_production', 'scrap', 'scrap_qty', 'rework', 'efficiency',
         'quality_status', 'std_ct', 'std_prod_hr', 'actual_ct', 'actual_prod_hr',
-        'machine_name', 'b_n_machine', 'shift_engineer_approval', 'manager_approval'
+        'machine_name', 'b_n_machine', 'shift_engineer_approval', 'manager_approval',
+        'present_operators', 'absent_operators', 'total_loss_qty', 'total_loss_hrs'
       ];
 
       for (const field of fields) {
@@ -45,7 +46,8 @@ export const updateSummary = async (req: Request, res: Response) => {
       const fields = [
         'total_production', 'scrap', 'scrap_qty', 'rework', 'efficiency',
         'quality_status', 'std_ct', 'std_prod_hr', 'actual_ct', 'actual_prod_hr',
-        'machine_name', 'b_n_machine', 'shift_engineer_approval', 'manager_approval'
+        'machine_name', 'b_n_machine', 'shift_engineer_approval', 'manager_approval',
+        'present_operators', 'absent_operators', 'total_loss_qty', 'total_loss_hrs'
       ];
 
       const insertFields = ['id', 'shift_log_id', ...fields];
