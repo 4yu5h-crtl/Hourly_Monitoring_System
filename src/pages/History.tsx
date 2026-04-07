@@ -13,17 +13,77 @@ export default function HistoryPage() {
   const [date, setDate] = useState(today);
   const [logs, setLogs] = useState<ShiftLog[]>([]);
   const [activeShift, setActiveShift] = useState(1);
+  const [selectedMachine, setSelectedMachine] = useState<string | null>(null);
+  const [selectedChannel, setSelectedChannel] = useState<string | null>(null);
+
+  // Get unique machines and channels for the selected shift
+  const machinesForShift = Array.from(
+    new Set(logs.filter((l) => l.shiftId === activeShift).map((l) => l.machine))
+  ).sort();
+
+  const channelsForMachine = Array.from(
+    new Set(
+      logs
+        .filter((l) => l.shiftId === activeShift && l.machine === selectedMachine)
+        .map((l) => l.channel)
+    )
+  ).sort();
 
   useEffect(() => {
     getLogsForDate(date).then((logsData) => {
       setLogs(logsData);
+      // Reset selections when date changes
+      setSelectedMachine(null);
+      setSelectedChannel(null);
     }).catch((error) => {
       console.error('Failed to fetch logs:', error);
       setLogs([]);
+      setSelectedMachine(null);
+      setSelectedChannel(null);
     });
   }, [date]);
 
-  const activeLog = logs.find((l) => l.shiftId === activeShift);
+  // Auto-select first machine when shift changes
+  useEffect(() => {
+    const machinesInShift = Array.from(
+      new Set(logs.filter((l) => l.shiftId === activeShift).map((l) => l.machine))
+    ).sort();
+    
+    if (machinesInShift.length > 0) {
+      setSelectedMachine(machinesInShift[0]);
+    } else {
+      setSelectedMachine(null);
+    }
+    setSelectedChannel(null);
+  }, [activeShift, logs]);
+
+  // Auto-select first channel when machine changes
+  useEffect(() => {
+    if (selectedMachine) {
+      const channelsInMachine = Array.from(
+        new Set(
+          logs
+            .filter((l) => l.shiftId === activeShift && l.machine === selectedMachine)
+            .map((l) => l.channel)
+        )
+      ).sort();
+      
+      if (channelsInMachine.length > 0) {
+        setSelectedChannel(channelsInMachine[0]);
+      } else {
+        setSelectedChannel(null);
+      }
+    } else {
+      setSelectedChannel(null);
+    }
+  }, [selectedMachine, activeShift, logs]);
+
+  const activeLog = logs.find(
+    (l) =>
+      l.shiftId === activeShift &&
+      l.machine === selectedMachine &&
+      l.channel === selectedChannel
+  );
 
   const handleExport = () => {
     exportToCSV(logs, date);
@@ -51,6 +111,40 @@ export default function HistoryPage() {
               className="bg-input border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
             />
           </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Machine</label>
+            <select
+              value={selectedMachine || ""}
+              onChange={(e) => setSelectedMachine(e.target.value || null)}
+              className="bg-input border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">Select Machine...</option>
+              {machinesForShift.map((machine) => (
+                <option key={machine} value={machine}>
+                  {machine}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-muted-foreground uppercase tracking-wider font-medium">Channel</label>
+            <select
+              value={selectedChannel || ""}
+              onChange={(e) => setSelectedChannel(e.target.value || null)}
+              disabled={!selectedMachine}
+              className="bg-input border border-border rounded-md px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <option value="">Select Channel...</option>
+              {channelsForMachine.map((channel) => (
+                <option key={channel} value={channel}>
+                  {channel}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex gap-1 self-end">
             {SHIFTS.map((s) => (
               <button
@@ -110,7 +204,11 @@ export default function HistoryPage() {
       ) : (
         <div className="flex items-center justify-center h-48 bg-card border border-border rounded-lg">
           <p className="text-muted-foreground text-sm">
-            No data for Shift {activeShift} on {date}
+            {selectedMachine && selectedChannel
+              ? `No data for Shift ${activeShift} - ${selectedMachine} - ${selectedChannel} on ${date}`
+              : selectedMachine
+              ? `No data for Shift ${activeShift} - ${selectedMachine} on ${date}`
+              : `No data for Shift ${activeShift} on ${date}`}
           </p>
         </div>
       )}

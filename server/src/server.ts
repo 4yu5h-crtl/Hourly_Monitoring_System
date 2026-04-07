@@ -5,6 +5,7 @@ import { testConnection } from './db/connection.js';
 import shiftsRouter from './routes/shifts.js';
 import entriesRouter from './routes/entries.js';
 import summaryRouter from './routes/summary.js';
+import opcRouter from './routes/opcRoutes.js';
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.get('/health', (_req: Request, res: Response) => {
 app.use('/api/shifts', shiftsRouter);
 app.use('/api/entries', entriesRouter);
 app.use('/api/summary', summaryRouter);
+app.use('/api/opc', opcRouter);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

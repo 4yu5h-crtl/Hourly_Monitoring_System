@@ -60,7 +60,7 @@ export async function createOrGetShift(
 // Entries API
 export async function updateEntry(
   entryId: string,
-  data: Partial<HourlyEntryResponse>
+  data: Partial<HourlyEntryResponse> & { hrly_qty?: number | null; std_variance?: number | null }
 ) {
   const response = await fetch(`${API_BASE_URL}/entries/${entryId}`, {
     method: 'PUT',
@@ -74,7 +74,7 @@ export async function updateEntry(
 
 export async function updateLossDetails(
   entryId: string,
-  lossData: Record<string, number | null>
+  lossData: Record<string, number | string | null>
 ) {
   const response = await fetch(`${API_BASE_URL}/entries/${entryId}/loss`, {
     method: 'PUT',
@@ -115,4 +115,11 @@ export async function checkApiHealth() {
   } catch {
     return false;
   }
+}
+
+// OPC UA API
+export async function fetchCumQtyFromPLC() {
+  const response = await fetch(`${API_BASE_URL}/opc/cum-qty`);
+  if (!response.ok) throw new Error('Failed to fetch from PLC');
+  return response.json();
 }

@@ -4,7 +4,8 @@ import {
   QUICK_INSERT_PHRASES, SaveStatus,
 } from "@/types/hms";
 import { cn } from "@/lib/utils";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, Download } from "lucide-react";
+import { fetchCumQtyFromPLC } from "@/lib/api";
 
 interface HMSRowProps {
   entry: HourlyEntry;
@@ -16,6 +17,7 @@ interface HMSRowProps {
 
 export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }: HMSRowProps) {
   const [lossExpanded, setLossExpanded] = useState(false);
+  const [isFetchingPLC, setIsFetchingPLC] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const filledLossCount = Object.values(entry.lossDetails).filter(
@@ -30,13 +32,24 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
   );
 
   const handleLoss = useCallback(
-    (key: LossKey, value: string) => {
-      const num = value === "" ? null : Number(value);
-      onChange({
-        ...entry,
-        lossDetails: { ...entry.lossDetails, [key]: num },
-        edited: true,
-      });
+    (key: string, value: string) => {
+      // Handle numeric fields (e.g., "ct_loss")
+      if (key.endsWith("_reason")) {
+        // String value for reason fields
+        onChange({
+          ...entry,
+          lossDetails: { ...entry.lossDetails, [key]: value },
+          edited: true,
+        });
+      } else {
+        // Numeric value for loss fields
+        const num = value === "" ? null : Number(value);
+        onChange({
+          ...entry,
+          lossDetails: { ...entry.lossDetails, [key]: num },
+          edited: true,
+        });
+      }
     },
     [entry, onChange]
   );
@@ -57,6 +70,25 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
     }
   }, [entry.reasonsText]);
 
+  const handleFetchFromPLC = async () => {
+    if (readOnly) return;
+    try {
+      setIsFetchingPLC(true);
+      const res = await fetchCumQtyFromPLC();
+      if (res && res.success && typeof res.value !== 'undefined') {
+        const val = Number(res.value);
+        if (!isNaN(val)) {
+          handleField("cumQty", val);
+          if (onBlur) onBlur(); // Auto-save after fetch
+        }
+      }
+    } catch (e) {
+      console.error("Failed to fetch from PLC", e);
+    } finally {
+      setIsFetchingPLC(false);
+    }
+  };
+
   const numInput = (
     value: number | null,
     onChangeVal: (v: string) => void,
@@ -67,9 +99,9 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
       value={value ?? ""}
       onChange={(e) => onChangeVal(e.target.value)}
       onBlur={onBlur}
-      disabled={readOnly}
+      disabled={true} // Hardcoded to true so only the database can modify this field
       className={cn(
-        "w-full bg-input border border-border rounded px-2 py-1.5 text-sm font-mono text-foreground",
+        "w-full bg-input border border-border rounded px-2 py-1.5 text-sm font-mono text-foreground bg-muted",
         "focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary",
         "disabled:opacity-60 disabled:cursor-not-allowed",
         "[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none",
@@ -95,23 +127,18 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
         </div>
 
         {/* CUM QTY */}
-        <div className="px-1.5 py-1.5 border-r border-border">
-          {numInput(entry.cumQty, (v) =>
-            handleField("cumQty", v === "" ? null : Number(v))
-          )}
+        <div className="px-1.5 py-1.5 border-r border-border relative flex items-center">
+          {numInput(entry.cumQty, () => {})}
         </div>
 
-        {/* HRLY QTY - calculated */}
+        {/* HOURLY QTY - calculated (no signs) */}
         <div className="px-1.5 py-1.5 border-r border-border flex items-center justify-center">
           <span
             className={cn(
-              "text-sm font-mono font-semibold",
-              entry.hrlyQty !== null && entry.hrlyQty > 0
-                ? "text-accent"
-                : "text-black"
+              "text-sm font-mono font-semibold text-accent"
             )}
           >
-            {entry.hrlyQty ?? "—"}
+            {entry.hrlyQty !== null ? Math.abs(entry.hrlyQty) : "—"}
           </span>
         </div>
 
@@ -121,7 +148,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
             className={cn(
               "text-sm font-mono font-semibold",
               entry.stdVariance !== null &&
-                (entry.stdVariance >= 0 ? "text-accent" : "text-destructive")
+                (entry.stdVariance >= 0 ? "text-green-600" : "text-destructive")
             )}
           >
             {entry.stdVariance !== null
@@ -182,26 +209,44 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
 
       {/* Expanded loss details */}
       {lossExpanded && (
-        <div className="bg-secondary/30 border-t border-border px-3 py-2 animate-accordion-down">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(100px,1fr))] gap-2">
-            {LOSS_COLUMNS.map((col) => (
-              <div key={col.key} className="flex flex-col gap-0.5">
-                <label className="text-[10px] text-black font-medium truncate">
-                  {col.label}
-                  {col.code && (
-                    <span className="text-black/50 ml-0.5">({col.code})</span>
-                  )}
-                </label>
-                <input
-                  type="number"
-                  value={entry.lossDetails[col.key as LossKey] ?? ""}
-                  onChange={(e) => handleLoss(col.key as LossKey, e.target.value)}
-                  onBlur={onBlur}
-                  disabled={readOnly}
-                  className="w-full bg-input border border-border rounded px-1.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-              </div>
-            ))}
+        <div className="bg-secondary/30 border-t border-border px-3 py-2 animate-accordion-down overflow-x-auto">
+          <div className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2 min-w-max">
+            {LOSS_COLUMNS.map((col) => {
+              const reasonKey = `${col.key}_reason` as keyof LossDetails;
+              return (
+                <div key={col.key} className="flex flex-col gap-1 w-full border border-border/30 rounded p-2 bg-background/50">
+                  {/* Label */}
+                  <label className="text-[9px] text-black font-semibold truncate" title={col.label}>
+                    {col.label}
+                    {col.code && (
+                      <span className="text-black/60 ml-0.5 font-normal">({col.code})</span>
+                    )}
+                  </label>
+
+                  {/* Numeric value input */}
+                  <input
+                    type="number"
+                    placeholder="Value"
+                    value={entry.lossDetails[col.key as LossKey] ?? ""}
+                    onChange={(e) => handleLoss(col.key, e.target.value)}
+                    onBlur={onBlur}
+                    disabled={readOnly}
+                    className="w-full bg-input border border-border rounded px-1.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+
+                  {/* Reason text input */}
+                  <textarea
+                    placeholder="Reason..."
+                    value={entry.lossDetails[reasonKey] ?? ""}
+                    onChange={(e) => handleLoss(reasonKey as string, e.target.value)}
+                    onBlur={onBlur}
+                    disabled={readOnly}
+                    className="w-full bg-input border border-border rounded px-1.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 resize-none"
+                    rows={2}
+                  />
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

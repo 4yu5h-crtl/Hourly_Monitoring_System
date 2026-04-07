@@ -44,17 +44,19 @@ export const SHIFTS: ShiftConfig[] = [
 
 export const LOSS_COLUMNS = [
   { key: "ct_loss", label: "CT Loss", code: "6111" },
-  { key: "start_loss", label: "Start Loss", code: "6112" },
-  { key: "maintenance", label: "MAINT", code: "5135" },
+  { key: "start_loss", label: "Start up Loss", code: "6112" },
+  { key: "mech_maintenance", label: "Mech MAINT", code: "5135" },
+  { key: "elect_maintenance", label: "Elect MAINT", code: "5135" },
   { key: "reset", label: "RESET", code: "5133" },
-  { key: "material", label: "Material", code: "5138" },
+  { key: "machine_adjustment", label: "Machine Adjustment", code: "5138" },
   { key: "supplier", label: "Supplier", code: "5131" },
+  { key: "shared_operation", label: "Shared Operation", code: "5131" },
   { key: "tool", label: "Tool", code: "5134T" },
-  { key: "spindle_service", label: "Spindle Svc", code: "5134S" },
-  { key: "wheel_change", label: "Wheel", code: "" },
-  { key: "operator", label: "OPTR", code: "6114" },
-  { key: "plan_stop", label: "PLN STOP", code: "6113" },
-  { key: "quality", label: "QLTY", code: "5137" },
+  { key: "spindle_service", label: "Spindle Service", code: "5134S" },
+  { key: "wheel_change", label: "Wheel Change", code: "6113" },
+  { key: "operator", label: "OPTR", code: "5137" },
+  { key: "plan_stop", label: "PLAN STOP", code: "6114" },
+  { key: "quality", label: "QUALITY", code: "" },
   { key: "system", label: "SYSTEM", code: "5132/5139" },
 ] as const;
 
@@ -62,18 +64,35 @@ export type LossKey = typeof LOSS_COLUMNS[number]["key"];
 
 export interface LossDetails {
   ct_loss: number | null;
+  ct_loss_reason: string;
   start_loss: number | null;
-  maintenance: number | null;
+  start_loss_reason: string;
+  mech_maintenance: number | null;
+  mech_maintenance_reason: string;
+  elect_maintenance: number | null;
+  elect_maintenance_reason: string;
   reset: number | null;
-  material: number | null;
+  reset_reason: string;
+  machine_adjustment: number | null;
+  machine_adjustment_reason: string;
   supplier: number | null;
+  supplier_reason: string;
+  shared_operation: number | null;
+  shared_operation_reason: string;
   tool: number | null;
+  tool_reason: string;
   spindle_service: number | null;
+  spindle_service_reason: string;
   wheel_change: number | null;
+  wheel_change_reason: string;
   operator: number | null;
+  operator_reason: string;
   plan_stop: number | null;
+  plan_stop_reason: string;
   quality: number | null;
+  quality_reason: string;
   system: number | null;
+  system_reason: string;
 }
 
 export interface HourlyEntry {

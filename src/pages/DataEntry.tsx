@@ -7,44 +7,135 @@ import {
 } from "@/types/hms";
 import {
   getOrCreateShiftLog, saveEntry, saveSummary, recalculate,
+  getShiftLogFromSessionStorage, isCachedSessionValid,
 } from "@/lib/storage";
 
 const today = new Date().toISOString().slice(0, 10);
 
+// SessionStorage keys for form state persistence
+const FORM_STATE_KEY = 'hms_form_state';
+
+interface FormState {
+  date: string;
+  machine: string;
+  channel: string;
+  shiftId: number;
+}
+
+/**
+ * Save form state to sessionStorage
+ */
+function saveFormState(state: FormState): void {
+  try {
+    sessionStorage.setItem(FORM_STATE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Failed to save form state:', e);
+  }
+}
+
+/**
+ * Get form state from sessionStorage
+ */
+function getFormState(): FormState | null {
+  try {
+    const data = sessionStorage.getItem(FORM_STATE_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (e) {
+    console.warn('Failed to get form state:', e);
+    return null;
+  }
+}
+
 export default function DataEntryPage() {
-  const [date, setDate] = useState(today);
-  const [machine, setMachine] = useState("");
-  const [channel, setChannel] = useState("");
-  const [shiftId, setShiftId] = useState(1);
+  // Initialize state from sessionStorage if available
+  const savedState = getFormState();
+
+  const [date, setDate] = useState(savedState?.date || today);
+  const [machine, setMachine] = useState(savedState?.machine || "");
+  const [channel, setChannel] = useState(savedState?.channel || "");
+  const [shiftId, setShiftId] = useState(savedState?.shiftId || 1);
   const [log, setLog] = useState<ShiftLog | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [isLoading, setIsLoading] = useState(false);
+  const [isFetchingFresh, setIsFetchingFresh] = useState(false);
+  const loadingRef = useRef(false);
+
+  // Save form state whenever it changes
+  useEffect(() => {
+    saveFormState({ date, machine, channel, shiftId });
+  }, [date, machine, channel, shiftId]);
 
   // Load / create log when params change
   useEffect(() => {
     if (machine.trim() && channel.trim()) {
-      getOrCreateShiftLog(date, shiftId, machine, channel).then((l) => {
-        setLog(l);
-      }).catch((error) => {
-        console.error('Failed to load shift log:', error);
-        setSaveStatus('error');
-      });
+      loadingRef.current = true;
+
+      // First, check if we have cached data in sessionStorage
+      const cachedLog = getShiftLogFromSessionStorage();
+      const isCached = isCachedSessionValid(date, shiftId, machine, channel);
+
+      if (isCached && cachedLog) {
+        // Show cached data immediately
+        console.log("Showing cached data from sessionStorage");
+        setLog(cachedLog);
+        setIsLoading(false);
+        setIsFetchingFresh(true);
+
+        // Fetch fresh data in background
+        getOrCreateShiftLog(date, shiftId, machine, channel)
+          .then((freshLog) => {
+            if (loadingRef.current) {
+              setLog(freshLog);
+              setIsFetchingFresh(false);
+            }
+            loadingRef.current = false;
+          })
+          .catch((error) => {
+            console.error("Failed to refresh data:", error);
+            setIsFetchingFresh(false);
+            setSaveStatus("error");
+            loadingRef.current = false;
+          });
+      } else {
+        // No cache, fetch from server
+        setIsLoading(true);
+        setIsFetchingFresh(false);
+
+        getOrCreateShiftLog(date, shiftId, machine, channel)
+          .then((l) => {
+            if (loadingRef.current) {
+              setLog(l);
+            }
+            loadingRef.current = false;
+            setIsLoading(false);
+          })
+          .catch((error) => {
+            console.error("Failed to load shift log:", error);
+            setSaveStatus("error");
+            loadingRef.current = false;
+            setIsLoading(false);
+          });
+      }
     } else {
       setLog(null);
+      loadingRef.current = false;
+      setIsLoading(false);
+      setIsFetchingFresh(false);
     }
   }, [date, shiftId, machine, channel]);
 
-  const stdTarget = log?.summary.stdProdHr ?? 50; // default
+  const actualProdHr = log?.summary.actualProdHr ?? null;
 
   const handleEntryChange = useCallback(
     (index: number, entry: HourlyEntry) => {
       if (!log) return;
       const newEntries = [...log.entries];
       newEntries[index] = entry;
-      const recalced = recalculate(newEntries, stdTarget);
+      const recalced = recalculate(newEntries, actualProdHr);
       const newLog = { ...log, entries: recalced };
       setLog(newLog);
     },
-    [log, stdTarget]
+    [log, actualProdHr]
   );
 
   const handleEntryBlur = useCallback(
@@ -65,7 +156,9 @@ export default function DataEntryPage() {
   const handleSummaryChange = useCallback(
     (summary: typeof log extends ShiftLog ? ShiftLog["summary"] : never) => {
       if (!log) return;
-      setLog({ ...log, summary });
+      // Recalculate entries if actualProdHr changed
+      const recalced = recalculate(log.entries, summary.actualProdHr);
+      setLog({ ...log, summary, entries: recalced });
     },
     [log]
   );
@@ -101,6 +194,16 @@ export default function DataEntryPage() {
       {log ? (
         <div className="flex gap-5">
           <div className="flex-1 min-w-0 overflow-x-auto scrollbar-thin">
+            {isLoading && (
+              <div className="mb-2 p-2 bg-blue-50 border border-blue-200 rounded text-sm text-blue-800">
+                ⏳ Loading production data...
+              </div>
+            )}
+            {isFetchingFresh && (
+              <div className="mb-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-800">
+                ✓ Showing cached data - Fetching fresh updates from server...
+              </div>
+            )}
             <HMSTable
               entries={log.entries}
               onEntryChange={handleEntryChange}
@@ -125,7 +228,9 @@ export default function DataEntryPage() {
       ) : (
         <div className="flex items-center justify-center h-48 bg-card border border-border rounded-lg mt-6">
           <p className="text-muted-foreground text-sm font-medium">
-            Please enter Machine and Channel to load the production data.
+            {isLoading 
+              ? "Loading..." 
+              : "Please enter Machine and Channel to load the production data."}
           </p>
         </div>
       )}

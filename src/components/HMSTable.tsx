@@ -25,7 +25,7 @@ export function HMSTable({
     <div className="bg-card border border-border rounded-lg overflow-hidden">
       {/* Table header */}
       <div className="grid grid-cols-[100px_90px_90px_90px_1fr_140px] gap-0 bg-secondary/60 border-b-2 border-primary/20 sticky top-0 z-10">
-        {["PERIOD", "CUM QTY", "HRLY QTY", "+/- STD", "REASONS FOR LOSS", "LOSS DETAILS"].map(
+        {["PERIOD", "CUM QTY", "HOURLY QTY", "+/- STD", "REASONS FOR LOSS", "LOSS DETAILS"].map(
           (h) => (
             <div
               key={h}

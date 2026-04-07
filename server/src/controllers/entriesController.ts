@@ -17,12 +17,19 @@ export const updateEntry = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Entry not found' });
     }
 
-    // Update entry
+    // Update entry - store input and calculated fields
     await query(
       `UPDATE hourly_entries 
        SET cum_qty = ?, hrly_qty = ?, std_variance = ?, reasons_text = ?, edited = ?, updated_at = CURRENT_TIMESTAMP
        WHERE id = ?`,
-      [cum_qty, hrly_qty, std_variance, reasons_text, edited || false, id]
+      [
+        cum_qty !== undefined ? cum_qty : null, 
+        hrly_qty !== undefined ? hrly_qty : null, 
+        std_variance !== undefined ? std_variance : null, 
+        reasons_text || "", 
+        edited || false, 
+        id
+      ]
     );
 
     res.json({ success: true, id });
@@ -49,8 +56,11 @@ export const updateLossDetails = async (req: Request, res: Response) => {
       const values: any[] = [];
 
       const fields = [
-        'ct_loss', 'start_loss', 'maintenance', 'reset', 'material', 'supplier',
-        'tool', 'spindle_service', 'wheel_change', 'operator', 'plan_stop', 'quality', 'system_loss'
+        'ct_loss', 'ct_loss_reason', 'start_loss', 'start_loss_reason', 'mech_maintenance', 'mech_maintenance_reason',
+        'elect_maintenance', 'elect_maintenance_reason', 'reset', 'reset_reason', 'machine_adjustment', 'machine_adjustment_reason',
+        'supplier', 'supplier_reason', 'shared_operation', 'shared_operation_reason', 'tool', 'tool_reason',
+        'spindle_service', 'spindle_service_reason', 'wheel_change', 'wheel_change_reason', 'operator', 'operator_reason',
+        'plan_stop', 'plan_stop_reason', 'quality', 'quality_reason', 'system_loss', 'system_reason'
       ];
 
       for (const field of fields) {
@@ -71,8 +81,11 @@ export const updateLossDetails = async (req: Request, res: Response) => {
       // Create
       const id = uuidv4();
       const fields = [
-        'ct_loss', 'start_loss', 'maintenance', 'reset', 'material', 'supplier',
-        'tool', 'spindle_service', 'wheel_change', 'operator', 'plan_stop', 'quality', 'system_loss'
+        'ct_loss', 'ct_loss_reason', 'start_loss', 'start_loss_reason', 'mech_maintenance', 'mech_maintenance_reason',
+        'elect_maintenance', 'elect_maintenance_reason', 'reset', 'reset_reason', 'machine_adjustment', 'machine_adjustment_reason',
+        'supplier', 'supplier_reason', 'shared_operation', 'shared_operation_reason', 'tool', 'tool_reason',
+        'spindle_service', 'spindle_service_reason', 'wheel_change', 'wheel_change_reason', 'operator', 'operator_reason',
+        'plan_stop', 'plan_stop_reason', 'quality', 'quality_reason', 'system_loss', 'system_reason'
       ];
 
       const insertFields = ['id', 'hourly_entry_id', ...fields];
