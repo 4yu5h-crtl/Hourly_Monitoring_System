@@ -1,3 +1,5 @@
+import { v4 as uuidv4 } from 'uuid';
+
 export interface ShiftConfig {
   id: number;
   name: string;
@@ -137,8 +139,6 @@ export interface ShiftLog {
   summary: ProductionSummary;
 }
 
-export const CHANNEL_PLACEHOLDER_MACHINE = "__CHANNEL_LEVEL__";
-
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export const QUICK_INSERT_PHRASES = [
@@ -185,9 +185,13 @@ export function createEmptyLossDetails(): LossDetails {
   };
 }
 
+export function generateId(): string {
+  return uuidv4();
+}
+
 export function createEmptyEntry(timeSlot: string): HourlyEntry {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     timeSlot,
     cumQty: null,
     hrlyQty: null,

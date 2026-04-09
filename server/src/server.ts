@@ -6,6 +6,7 @@ import shiftsRouter from './routes/shifts.js';
 import entriesRouter from './routes/entries.js';
 import summaryRouter from './routes/summary.js';
 import opcRouter from './routes/opcRoutes.js';
+import { processKepwareSync } from './controllers/opcController.js';
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -63,6 +64,21 @@ async function startServer() {
       console.log(`✓ Server running on http://localhost:${PORT}`);
       console.log(`✓ API available at http://localhost:${PORT}/api`);
     });
+
+    // Start Kepware auto-sync only on PM2 Instance 0 (or in standalone dev mode)
+    const isPrimaryInstance = !process.env.NODE_APP_INSTANCE || process.env.NODE_APP_INSTANCE === '0';
+    if (isPrimaryInstance && process.env.OPC_CH02_ENDPOINT_URL && process.env.OPC_CH02_NODE_ID) {
+      console.log(`✓ Initiating Kepware OPC UA auto-sync (1 minute polling)`);
+      setInterval(async () => {
+        try {
+          await processKepwareSync('Control Room', 'CH-02');
+          // Silently succeeds
+        } catch (error: any) {
+          console.error(`[Kepware Polling Error]: ${error.message}`);
+        }
+      }, 60000); // 1 minute
+    }
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);

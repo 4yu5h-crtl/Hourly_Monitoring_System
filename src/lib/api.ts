@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001/api';
 
 // Types matching the backend
 export interface ShiftLogResponse {
@@ -72,19 +72,6 @@ export async function updateEntry(
   return response.json();
 }
 
-export async function updateLossDetails(
-  entryId: string,
-  lossData: Record<string, number | string | null | undefined>
-) {
-  const response = await fetch(`${API_BASE_URL}/entries/${entryId}/loss`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(lossData),
-  });
-
-  if (!response.ok) throw new Error('Failed to update loss details');
-  return response.json();
-}
 
 // Summary API
 export async function updateSummary(

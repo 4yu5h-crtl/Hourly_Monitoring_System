@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { query } from '../db/connection.js';
+import { query, getConnection } from '../db/connection.js';
 
 export const getShifts = async (req: Request, res: Response) => {
   try {
@@ -59,6 +59,37 @@ export const getShiftById = async (req: Request, res: Response) => {
         };
       })
     );
+
+    // If this is a specific machine (not the Control Room), we need to borrow the 
+    // production data (cum_qty, hrly_qty, std_variance) from the Control Room log
+    if (log.machine !== 'Control Room') {
+      const masterLogs = await query(
+        'SELECT id FROM shift_logs WHERE date = ? AND shift_id = ? AND channel = ? AND machine = ?',
+        [log.date, log.shift_id, log.channel, 'Control Room']
+      ) as any[];
+
+      if (masterLogs.length > 0) {
+        const masterEntries = await query(
+          'SELECT time_slot, cum_qty, hrly_qty, std_variance FROM hourly_entries WHERE shift_log_id = ?',
+          [masterLogs[0].id]
+        ) as any[];
+
+        const masterEntryMap = new Map(masterEntries.map(me => [me.time_slot, me]));
+
+        entriesWithLoss = entriesWithLoss.map(entry => {
+          const m = masterEntryMap.get(entry.time_slot);
+          if (m) {
+            return {
+              ...entry,
+              cum_qty: m.cum_qty,
+              hrly_qty: m.hrly_qty,
+              std_variance: m.std_variance
+            };
+          }
+          return entry;
+        });
+      }
+    }
 
     // Sort entries according to the chronological time slot sequence
     const timeSlots = getTimeSlots(log.shift_id);
@@ -119,38 +150,69 @@ export const createOrGetShift = async (req: Request, res: Response) => {
       return res.json(results[0]);
     }
 
-    // Create new shift log
     const id = uuidv4();
-    await query(
-      'INSERT INTO shift_logs (id, date, shift_id, machine, channel) VALUES (?, ?, ?, ?, ?)',
-      [id, date, shiftId, machine, channel]
-    );
+    const conn = await getConnection();
+    try {
+      await conn.beginTransaction();
 
-    // Create empty entries and summary
-    const timeSlots = getTimeSlots(shiftId);
-    for (const slot of timeSlots) {
-      const entryId = uuidv4();
-      await query(
-        'INSERT INTO hourly_entries (id, shift_log_id, time_slot) VALUES (?, ?, ?)',
-        [entryId, id, slot]
+      // Double check within transaction
+      const [[doubleCheckShift]] = await conn.execute(
+         'SELECT * FROM shift_logs WHERE date = ? AND shift_id = ? AND machine = ? AND channel = ? FOR UPDATE',
+         [date, shiftId, machine, channel]
+      ) as any[];
+
+      if (doubleCheckShift) {
+        await conn.commit();
+        return res.json(doubleCheckShift);
+      }
+
+      await conn.execute(
+        'INSERT INTO shift_logs (id, date, shift_id, machine, channel) VALUES (?, ?, ?, ?, ?)',
+        [id, date, shiftId, machine, channel]
       );
 
-      // Create empty loss details
-      const lossId = uuidv4();
-      await query(
-        'INSERT INTO loss_details (id, hourly_entry_id) VALUES (?, ?)',
-        [lossId, entryId]
+      // Create empty entries and summary
+      const timeSlots = getTimeSlots(shiftId);
+      for (const slot of timeSlots) {
+        const entryId = uuidv4();
+        await conn.execute(
+          'INSERT INTO hourly_entries (id, shift_log_id, time_slot) VALUES (?, ?, ?)',
+          [entryId, id, slot]
+        );
+
+        // Create empty loss details
+        const lossId = uuidv4();
+        await conn.execute(
+          'INSERT INTO loss_details (id, hourly_entry_id) VALUES (?, ?)',
+          [lossId, entryId]
+        );
+      }
+
+      // Create empty summary
+      const summaryId = uuidv4();
+      await conn.execute(
+        'INSERT INTO production_summary (id, shift_log_id) VALUES (?, ?)',
+        [summaryId, id]
       );
+
+      await conn.commit();
+      res.status(201).json({ id, date, shift_id: shiftId, machine, channel });
+    } catch (err: any) {
+      await conn.rollback();
+      if (err.code === 'ER_DUP_ENTRY') {
+        console.warn('Concurrent insert detected in createOrGetShift. Returning existing record.');
+        const [retryShift] = await query(
+           'SELECT * FROM shift_logs WHERE date = ? AND shift_id = ? AND machine = ? AND channel = ?',
+           [date, shiftId, machine, channel]
+        ) as any[];
+        if (retryShift) {
+          return res.json(retryShift);
+        }
+      }
+      throw err;
+    } finally {
+      conn.release();
     }
-
-    // Create empty summary
-    const summaryId = uuidv4();
-    await query(
-      'INSERT INTO production_summary (id, shift_log_id) VALUES (?, ?)',
-      [summaryId, id]
-    );
-
-    res.status(201).json({ id, date, shift_id: shiftId, machine, channel });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }

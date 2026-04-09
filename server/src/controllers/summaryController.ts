@@ -51,7 +51,7 @@ export const updateSummary = async (req: Request, res: Response) => {
       ];
 
       const insertFields = ['id', 'shift_log_id', ...fields];
-      const insertValues = [id, shift_log_id, ...fields.map(f => summaryData[f] || null)];
+      const insertValues = [id, shift_log_id, ...fields.map(f => summaryData[f] ?? null)];
 
       await query(
         `INSERT INTO production_summary (${insertFields.join(', ')}) VALUES (${insertFields.map(() => '?').join(', ')})`,

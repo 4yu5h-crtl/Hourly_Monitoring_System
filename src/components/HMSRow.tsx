@@ -21,9 +21,11 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, lossEditingEnabled
   const [isFetchingPLC, setIsFetchingPLC] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const filledLossCount = Object.values(entry.lossDetails).filter(
-    (v) => v !== null && v !== 0
-  ).length;
+  const filledLossCount = LOSS_COLUMNS.filter((col) => {
+    const val = entry.lossDetails[col.key];
+    const reason = entry.lossDetails[`${col.key}_reason` as keyof LossDetails];
+    return (val !== null && val !== 0 && val !== "") || (reason !== null && reason !== "");
+  }).length;
 
   const handleField = useCallback(
     (field: keyof HourlyEntry, value: unknown) => {
@@ -54,7 +56,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, lossEditingEnabled
         });
       }
     },
-    [entry, onChange]
+    [entry, onChange, lossEditingEnabled]
   );
 
   const insertPhrase = useCallback(

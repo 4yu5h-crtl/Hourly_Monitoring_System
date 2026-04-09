@@ -3,7 +3,8 @@ import { ShiftSelector } from "@/components/ShiftSelector";
 import { HMSTable } from "@/components/HMSTable";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import {
-  HourlyEntry, SaveStatus, ShiftLog, CHANNEL_PLACEHOLDER_MACHINE,
+  HourlyEntry, SaveStatus, ShiftLog,
+  SHIFTS, createEmptyEntry, createEmptySummary,
 } from "@/types/hms";
 import {
   getOrCreateShiftLog, saveEntry, saveSummary, recalculate,
@@ -46,6 +47,22 @@ function getFormState(): FormState | null {
   }
 }
 
+/**
+ * Create a blank local-only ShiftLog (not persisted to DB) for display purposes
+ */
+function createBlankLog(date: string, shiftId: number, channel: string): ShiftLog {
+  const shiftConfig = SHIFTS.find((s) => s.id === shiftId) || SHIFTS[0];
+  return {
+    id: "",
+    date,
+    shiftId,
+    machine: "",
+    channel,
+    entries: shiftConfig.timeSlots.map((slot) => createEmptyEntry(slot)),
+    summary: createEmptySummary(),
+  };
+}
+
 export default function DataEntryPage() {
   // Initialize state from sessionStorage if available
   const savedState = getFormState();
@@ -59,6 +76,12 @@ export default function DataEntryPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isFetchingFresh, setIsFetchingFresh] = useState(false);
   const loadingRef = useRef(false);
+  const logRef = useRef<ShiftLog | null>(null);
+
+  // Keep logRef in sync with log state so blur handlers always see the latest data
+  useEffect(() => {
+    logRef.current = log;
+  }, [log]);
 
   // Save form state whenever it changes
   useEffect(() => {
@@ -67,13 +90,17 @@ export default function DataEntryPage() {
 
   // Load / create log when params change
   useEffect(() => {
-    if (channel.trim()) {
+    const trimmedChannel = channel.trim();
+    const trimmedMachine = machine.trim();
+
+    if (trimmedChannel) {
+      // Channel selected — load real data from DB, using specific machine or the master 'Control Room'
+      const activeMachine = trimmedMachine || "Control Room";
       loadingRef.current = true;
-      const machineForShift = CHANNEL_PLACEHOLDER_MACHINE;
 
       // First, check if we have cached data in sessionStorage
       const cachedLog = getShiftLogFromSessionStorage();
-      const isCached = isCachedSessionValid(date, shiftId, machineForShift, channel);
+      const isCached = isCachedSessionValid(date, shiftId, activeMachine, trimmedChannel);
 
       if (isCached && cachedLog) {
         // Show cached data immediately
@@ -83,7 +110,7 @@ export default function DataEntryPage() {
         setIsFetchingFresh(true);
 
         // Fetch fresh data in background
-        getOrCreateShiftLog(date, shiftId, machineForShift, channel)
+        getOrCreateShiftLog(date, shiftId, activeMachine, trimmedChannel)
           .then((freshLog) => {
             if (loadingRef.current) {
               setLog(freshLog);
@@ -102,7 +129,7 @@ export default function DataEntryPage() {
         setIsLoading(true);
         setIsFetchingFresh(false);
 
-        getOrCreateShiftLog(date, shiftId, machineForShift, channel)
+        getOrCreateShiftLog(date, shiftId, activeMachine, trimmedChannel)
           .then((l) => {
             if (loadingRef.current) {
               setLog(l);
@@ -123,7 +150,7 @@ export default function DataEntryPage() {
       setIsLoading(false);
       setIsFetchingFresh(false);
     }
-  }, [date, shiftId, channel]);
+  }, [date, shiftId, machine, channel]);
 
   const actualProdHr = log?.summary.actualProdHr ?? null;
 
@@ -141,17 +168,20 @@ export default function DataEntryPage() {
 
   const handleEntryBlur = useCallback(
     async (index: number) => {
-      if (!log) return;
+      // Use logRef to always access the latest log state,
+      // avoiding stale closure when blur fires in the same event cycle as onChange
+      const currentLog = logRef.current;
+      if (!currentLog || !currentLog.id) return; // Skip save for blank (no-machine) logs
       setSaveStatus("saving");
       try {
-        await saveEntry(log.id, log.entries[index], machine.trim() || null);
+        await saveEntry(currentLog.id, currentLog.entries[index], machine.trim() || null);
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 2000);
       } catch {
         setSaveStatus("error");
       }
     },
-    [log, machine]
+    [machine]
   );
 
   const handleSummaryChange = useCallback(
@@ -166,17 +196,18 @@ export default function DataEntryPage() {
 
   const handleSummaryBlur = useCallback(
     async () => {
-      if (!log) return;
+      const currentLog = logRef.current;
+      if (!currentLog || !currentLog.id) return; // Skip save for blank (no-machine) logs
       setSaveStatus("saving");
       try {
-        await saveSummary(log.id, log.summary);
+        await saveSummary(currentLog.id, currentLog.summary);
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 2000);
       } catch {
         setSaveStatus("error");
       }
     },
-    [log]
+    []
   );
 
   return (
@@ -232,7 +263,7 @@ export default function DataEntryPage() {
           <p className="text-muted-foreground text-sm font-medium">
             {isLoading 
               ? "Loading..." 
-              : "Please select Channel to load the production data."}
+              : "Please select a Channel to load the production data."}
           </p>
         </div>
       )}

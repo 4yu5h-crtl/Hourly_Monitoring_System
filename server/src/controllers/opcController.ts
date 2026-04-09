@@ -1,6 +1,6 @@
 ﻿import { Request, Response } from 'express';
 import { OPCUAClient } from 'node-opcua';
-import { query } from '../db/connection.js';
+import { query, getConnection } from '../db/connection.js';
 import { v4 as uuidv4 } from 'uuid';
 import 'dotenv/config.js';
 
@@ -29,8 +29,9 @@ export const getCumQty = async (_req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error(error);
-    try { await client.disconnect(); } catch (_e) {}
     res.status(500).json({ error: error.message });
+  } finally {
+    try { await client.disconnect(); } catch (_e) {}
   }
 };
 
@@ -39,6 +40,24 @@ export const fetchAndStoreCumQty = async (req: Request, res: Response) => {
   const machine = (req.body?.machine || 'Control Room').trim();
   const channel = (req.body?.channel || 'CH-02').trim();
 
+  try {
+    const result = await processKepwareSync(machine, channel);
+    res.json(result);
+  } catch (error: any) {
+    console.error(error);
+    if (error.message === 'Target hourly slot was not found for the shift log') {
+      res.status(404).json({ error: error.message });
+    } else {
+      res.status(500).json({ error: error.message });
+    }
+  }
+};
+
+/**
+ * Standalone function to fetch from Kepware and write to the database.
+ * Used for both the API endpoint and the background chron/polling job.
+ */
+export const processKepwareSync = async (machine: string = 'Control Room', channel: string = 'CH-02') => {
   const client = OPCUAClient.create({ endpointMustExist: false });
 
   try {
@@ -52,32 +71,62 @@ export const fetchAndStoreCumQty = async (req: Request, res: Response) => {
 
     let shiftLogId = existingShift[0]?.id as string | undefined;
     if (!shiftLogId) {
-      shiftLogId = uuidv4();
-      await query(
-        'INSERT INTO shift_logs (id, date, shift_id, machine, channel) VALUES (?, ?, ?, ?, ?)',
-        [shiftLogId, slotInfo.shiftDate, slotInfo.shiftId, machine, channel]
-      );
+      const conn = await getConnection();
+      try {
+        await conn.beginTransaction();
 
-      const timeSlots = getTimeSlots(slotInfo.shiftId);
-      for (const slot of timeSlots) {
-        const entryId = uuidv4();
-        await query(
-          'INSERT INTO hourly_entries (id, shift_log_id, time_slot) VALUES (?, ?, ?)',
-          [entryId, shiftLogId, slot]
-        );
+        // Double check within transaction
+        const [[doubleCheckShift]] = await conn.execute(
+          'SELECT id FROM shift_logs WHERE date = ? AND shift_id = ? AND machine = ? AND channel = ? FOR UPDATE',
+          [slotInfo.shiftDate, slotInfo.shiftId, machine, channel]
+        ) as any[];
 
-        const lossId = uuidv4();
-        await query(
-          'INSERT INTO loss_details (id, hourly_entry_id) VALUES (?, ?)',
-          [lossId, entryId]
-        );
+        if (doubleCheckShift) {
+          shiftLogId = doubleCheckShift.id;
+        } else {
+          shiftLogId = uuidv4();
+          await conn.execute(
+            'INSERT INTO shift_logs (id, date, shift_id, machine, channel) VALUES (?, ?, ?, ?, ?)',
+            [shiftLogId, slotInfo.shiftDate, slotInfo.shiftId, machine, channel]
+          );
+
+          const timeSlots = getTimeSlots(slotInfo.shiftId);
+          for (const slot of timeSlots) {
+            const entryId = uuidv4();
+            await conn.execute(
+              'INSERT INTO hourly_entries (id, shift_log_id, time_slot) VALUES (?, ?, ?)',
+              [entryId, shiftLogId, slot]
+            );
+
+            const lossId = uuidv4();
+            await conn.execute(
+              'INSERT INTO loss_details (id, hourly_entry_id) VALUES (?, ?)',
+              [lossId, entryId]
+            );
+          }
+
+          const summaryId = uuidv4();
+          await conn.execute(
+            'INSERT INTO production_summary (id, shift_log_id) VALUES (?, ?)',
+            [summaryId, shiftLogId]
+          );
+        }
+        await conn.commit();
+      } catch (err: any) {
+        await conn.rollback();
+        if (err.code === 'ER_DUP_ENTRY') {
+          console.warn('Concurrent insert detected in processKepwareSync. Retrying fetch...');
+          const [retryFetch] = await query(
+            'SELECT id FROM shift_logs WHERE date = ? AND shift_id = ? AND machine = ? AND channel = ?',
+            [slotInfo.shiftDate, slotInfo.shiftId, machine, channel]
+          ) as any[];
+          if (retryFetch) shiftLogId = retryFetch.id;
+        } else {
+          throw err;
+        }
+      } finally {
+        conn.release();
       }
-
-      const summaryId = uuidv4();
-      await query(
-        'INSERT INTO production_summary (id, shift_log_id) VALUES (?, ?)',
-        [summaryId, shiftLogId]
-      );
     }
 
     const entries = await query(
@@ -86,12 +135,7 @@ export const fetchAndStoreCumQty = async (req: Request, res: Response) => {
     ) as any[];
 
     if (!entries.length) {
-      return res.status(404).json({
-        success: false,
-        error: 'Target hourly slot was not found for the shift log',
-        shift: slotInfo.shiftId,
-        timeSlot: slotInfo.timeSlot,
-      });
+      throw new Error('Target hourly slot was not found for the shift log');
     }
 
     const entryId = entries[0].id as string;
@@ -100,7 +144,7 @@ export const fetchAndStoreCumQty = async (req: Request, res: Response) => {
       [read.value, entryId]
     );
 
-    res.json({
+    return {
       success: true,
       value: read.value,
       timestamp: read.sourceTimestamp.toISOString(),
@@ -113,11 +157,9 @@ export const fetchAndStoreCumQty = async (req: Request, res: Response) => {
       shiftLogId,
       entryId,
       stored: true,
-    });
-  } catch (error: any) {
-    console.error(error);
+    };
+  } finally {
     try { await client.disconnect(); } catch (_e) {}
-    res.status(500).json({ error: error.message });
   }
 };
 

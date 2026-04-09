@@ -185,18 +185,17 @@ export async function getOrCreateShiftLog(
 export async function saveEntry(logId: string, entry: HourlyEntry, selectedMachine: string | null): Promise<void> {
   const lossDetails = entry.lossDetails;
 
-  // Update entry in MySQL - send input and calculated fields
-  await api.updateEntry(entry.id, {
+  const payload: any = {
     cum_qty: entry.cumQty,
     hrly_qty: entry.hrlyQty,
     std_variance: entry.stdVariance,
     reasons_text: entry.reasonsText,
     edited: entry.edited,
-  });
+  };
 
-  // Persist machine-attributed loss only when a machine is selected.
+  // Persist machine-attributed loss atomically if a machine is selected
   if (selectedMachine) {
-    await api.updateLossDetails(entry.id, {
+    payload.lossDetails = {
       loss_machine: selectedMachine,
       ct_loss: lossDetails.ct_loss,
       ct_loss_reason: lossDetails.ct_loss_reason,
@@ -228,8 +227,11 @@ export async function saveEntry(logId: string, entry: HourlyEntry, selectedMachi
       quality_reason: lossDetails.quality_reason,
       system_loss: lossDetails.system,
       system_reason: lossDetails.system_reason,
-    });
+    };
   }
+
+  // Update entry in MySQL - send input and loss atomically
+  await api.updateEntry(entry.id, payload);
 
   // Update sessionStorage with latest data
   const log = getShiftLogFromSessionStorage();
@@ -256,6 +258,10 @@ export async function saveSummary(logId: string, summary: ProductionSummary): Pr
     b_n_machine: summary.bNMachine,
     shift_engineer_approval: summary.shiftEngineerApproval,
     manager_approval: summary.managerApproval,
+    present_operators: summary.presentOperators,
+    absent_operators: summary.absentOperators,
+    total_loss_qty: summary.totalLossQty,
+    total_loss_hrs: summary.totalLossHrs,
   });
 
   // Update sessionStorage with latest data
@@ -284,59 +290,63 @@ function convertApiLogToShiftLog(apiLog: any): ShiftLog {
     entries: (apiLog.entries || []).map((entry: any) => ({
       id: entry.id,
       timeSlot: entry.time_slot,
-      cumQty: entry.cum_qty,
-      hrlyQty: entry.hrly_qty,
-      stdVariance: entry.std_variance,
-      reasonsText: entry.reasons_text || "",
+      cumQty: entry.cum_qty ?? null,
+      hrlyQty: entry.hrly_qty ?? null,
+      stdVariance: entry.std_variance ?? null,
+      reasonsText: entry.reasons_text ?? "",
       lossDetails: {
-        ct_loss: entry.lossDetails?.ct_loss || null,
-        ct_loss_reason: entry.lossDetails?.ct_loss_reason || "",
-        start_loss: entry.lossDetails?.start_loss || null,
-        start_loss_reason: entry.lossDetails?.start_loss_reason || "",
-        mech_maintenance: entry.lossDetails?.mech_maintenance || null,
-        mech_maintenance_reason: entry.lossDetails?.mech_maintenance_reason || "",
-        elect_maintenance: entry.lossDetails?.elect_maintenance || null,
-        elect_maintenance_reason: entry.lossDetails?.elect_maintenance_reason || "",
-        reset: entry.lossDetails?.reset || null,
-        reset_reason: entry.lossDetails?.reset_reason || "",
-        machine_adjustment: entry.lossDetails?.machine_adjustment || null,
-        machine_adjustment_reason: entry.lossDetails?.machine_adjustment_reason || "",
-        supplier: entry.lossDetails?.supplier || null,
-        supplier_reason: entry.lossDetails?.supplier_reason || "",
-        shared_operation: entry.lossDetails?.shared_operation || null,
-        shared_operation_reason: entry.lossDetails?.shared_operation_reason || "",
-        tool: entry.lossDetails?.tool || null,
-        tool_reason: entry.lossDetails?.tool_reason || "",
-        spindle_service: entry.lossDetails?.spindle_service || null,
-        spindle_service_reason: entry.lossDetails?.spindle_service_reason || "",
-        wheel_change: entry.lossDetails?.wheel_change || null,
-        wheel_change_reason: entry.lossDetails?.wheel_change_reason || "",
-        operator: entry.lossDetails?.operator || null,
-        operator_reason: entry.lossDetails?.operator_reason || "",
-        plan_stop: entry.lossDetails?.plan_stop || null,
-        plan_stop_reason: entry.lossDetails?.plan_stop_reason || "",
-        quality: entry.lossDetails?.quality || null,
-        quality_reason: entry.lossDetails?.quality_reason || "",
-        system: entry.lossDetails?.system_loss || null,
-        system_reason: entry.lossDetails?.system_reason || "",
+        ct_loss: entry.lossDetails?.ct_loss ?? null,
+        ct_loss_reason: entry.lossDetails?.ct_loss_reason ?? "",
+        start_loss: entry.lossDetails?.start_loss ?? null,
+        start_loss_reason: entry.lossDetails?.start_loss_reason ?? "",
+        mech_maintenance: entry.lossDetails?.mech_maintenance ?? null,
+        mech_maintenance_reason: entry.lossDetails?.mech_maintenance_reason ?? "",
+        elect_maintenance: entry.lossDetails?.elect_maintenance ?? null,
+        elect_maintenance_reason: entry.lossDetails?.elect_maintenance_reason ?? "",
+        reset: entry.lossDetails?.reset ?? null,
+        reset_reason: entry.lossDetails?.reset_reason ?? "",
+        machine_adjustment: entry.lossDetails?.machine_adjustment ?? null,
+        machine_adjustment_reason: entry.lossDetails?.machine_adjustment_reason ?? "",
+        supplier: entry.lossDetails?.supplier ?? null,
+        supplier_reason: entry.lossDetails?.supplier_reason ?? "",
+        shared_operation: entry.lossDetails?.shared_operation ?? null,
+        shared_operation_reason: entry.lossDetails?.shared_operation_reason ?? "",
+        tool: entry.lossDetails?.tool ?? null,
+        tool_reason: entry.lossDetails?.tool_reason ?? "",
+        spindle_service: entry.lossDetails?.spindle_service ?? null,
+        spindle_service_reason: entry.lossDetails?.spindle_service_reason ?? "",
+        wheel_change: entry.lossDetails?.wheel_change ?? null,
+        wheel_change_reason: entry.lossDetails?.wheel_change_reason ?? "",
+        operator: entry.lossDetails?.operator ?? null,
+        operator_reason: entry.lossDetails?.operator_reason ?? "",
+        plan_stop: entry.lossDetails?.plan_stop ?? null,
+        plan_stop_reason: entry.lossDetails?.plan_stop_reason ?? "",
+        quality: entry.lossDetails?.quality ?? null,
+        quality_reason: entry.lossDetails?.quality_reason ?? "",
+        system: entry.lossDetails?.system_loss ?? null,
+        system_reason: entry.lossDetails?.system_reason ?? "",
       },
       edited: entry.edited || false,
     })),
     summary: {
-      totalProduction: apiLog.summary?.total_production || null,
-      scrap: apiLog.summary?.scrap || null,
-      scrapQty: apiLog.summary?.scrap_qty || null,
-      rework: apiLog.summary?.rework || null,
-      efficiency: apiLog.summary?.efficiency || null,
-      qualityStatus: apiLog.summary?.quality_status || "",
-      stdCT: apiLog.summary?.std_ct || null,
-      stdProdHr: apiLog.summary?.std_prod_hr || null,
-      actualCT: apiLog.summary?.actual_ct || null,
-      actualProdHr: apiLog.summary?.actual_prod_hr || null,
-      machineName: apiLog.summary?.machine_name || "",
-      bNMachine: apiLog.summary?.b_n_machine || "",
-      shiftEngineerApproval: apiLog.summary?.shift_engineer_approval || "",
-      managerApproval: apiLog.summary?.manager_approval || "",
+      totalProduction: apiLog.summary?.total_production ?? null,
+      scrap: apiLog.summary?.scrap ?? null,
+      scrapQty: apiLog.summary?.scrap_qty ?? null,
+      rework: apiLog.summary?.rework ?? null,
+      efficiency: apiLog.summary?.efficiency ?? null,
+      qualityStatus: apiLog.summary?.quality_status ?? "",
+      stdCT: apiLog.summary?.std_ct ?? null,
+      stdProdHr: apiLog.summary?.std_prod_hr ?? null,
+      actualCT: apiLog.summary?.actual_ct ?? null,
+      actualProdHr: apiLog.summary?.actual_prod_hr ?? null,
+      machineName: apiLog.summary?.machine_name ?? "",
+      bNMachine: apiLog.summary?.b_n_machine ?? "",
+      shiftEngineerApproval: apiLog.summary?.shift_engineer_approval ?? "",
+      managerApproval: apiLog.summary?.manager_approval ?? "",
+      presentOperators: apiLog.summary?.present_operators ?? "",
+      absentOperators: apiLog.summary?.absent_operators ?? "",
+      totalLossQty: apiLog.summary?.total_loss_qty ?? null,
+      totalLossHrs: apiLog.summary?.total_loss_hrs ?? null,
     },
   };
 }
