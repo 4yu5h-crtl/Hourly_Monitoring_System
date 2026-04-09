@@ -74,7 +74,7 @@ export async function updateEntry(
 
 export async function updateLossDetails(
   entryId: string,
-  lossData: Record<string, number | string | null>
+  lossData: Record<string, number | string | null | undefined>
 ) {
   const response = await fetch(`${API_BASE_URL}/entries/${entryId}/loss`, {
     method: 'PUT',

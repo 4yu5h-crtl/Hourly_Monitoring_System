@@ -56,6 +56,7 @@ export const updateLossDetails = async (req: Request, res: Response) => {
       const values: any[] = [];
 
       const fields = [
+        'loss_machine',
         'ct_loss', 'ct_loss_reason', 'start_loss', 'start_loss_reason', 'mech_maintenance', 'mech_maintenance_reason',
         'elect_maintenance', 'elect_maintenance_reason', 'reset', 'reset_reason', 'machine_adjustment', 'machine_adjustment_reason',
         'supplier', 'supplier_reason', 'shared_operation', 'shared_operation_reason', 'tool', 'tool_reason',
@@ -81,6 +82,7 @@ export const updateLossDetails = async (req: Request, res: Response) => {
       // Create
       const id = uuidv4();
       const fields = [
+        'loss_machine',
         'ct_loss', 'ct_loss_reason', 'start_loss', 'start_loss_reason', 'mech_maintenance', 'mech_maintenance_reason',
         'elect_maintenance', 'elect_maintenance_reason', 'reset', 'reset_reason', 'machine_adjustment', 'machine_adjustment_reason',
         'supplier', 'supplier_reason', 'shared_operation', 'shared_operation_reason', 'tool', 'tool_reason',

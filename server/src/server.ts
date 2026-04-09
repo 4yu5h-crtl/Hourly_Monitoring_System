@@ -8,7 +8,7 @@ import summaryRouter from './routes/summary.js';
 import opcRouter from './routes/opcRoutes.js';
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors());

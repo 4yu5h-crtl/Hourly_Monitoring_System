@@ -8,12 +8,13 @@ module.exports = {
       node_args: "--experimental-specifier-resolution=node",
       env: {
         NODE_ENV: "production",
+        PORT: 5001
       }
     },
     {
       name: "hms-frontend",
       script: "node",
-      args: "./node_modules/serve/build/main.js -s dist -l 3000",
+      args: "./node_modules/serve/build/main.js -s dist -l 5174",
       cwd: ".",
       env: {
         NODE_ENV: "production",

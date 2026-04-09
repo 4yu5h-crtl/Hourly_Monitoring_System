@@ -12,10 +12,11 @@ interface HMSRowProps {
   onChange: (entry: HourlyEntry) => void;
   onBlur?: () => void;
   saveStatus: SaveStatus;
+  lossEditingEnabled?: boolean;
   readOnly?: boolean;
 }
 
-export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }: HMSRowProps) {
+export function HMSRow({ entry, onChange, onBlur, saveStatus, lossEditingEnabled = true, readOnly = false }: HMSRowProps) {
   const [lossExpanded, setLossExpanded] = useState(false);
   const [isFetchingPLC, setIsFetchingPLC] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -33,6 +34,8 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
 
   const handleLoss = useCallback(
     (key: string, value: string) => {
+      if (!lossEditingEnabled) return;
+
       // Handle numeric fields (e.g., "ct_loss")
       if (key.endsWith("_reason")) {
         // String value for reason fields
@@ -56,12 +59,16 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
 
   const insertPhrase = useCallback(
     (text: string) => {
+      if (!lossEditingEnabled) return;
+
       const current = entry.reasonsText;
       const newText = current ? `${current}\n${text}` : text;
       onChange({ ...entry, reasonsText: newText, edited: true });
     },
-    [entry, onChange]
+    [entry, onChange, lossEditingEnabled]
   );
+
+  const lossFieldsDisabled = readOnly || !lossEditingEnabled;
 
   useEffect(() => {
     if (textareaRef.current) {
@@ -165,7 +172,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
               value={entry.reasonsText}
               onChange={(e) => handleField("reasonsText", e.target.value)}
               onBlur={onBlur}
-              disabled={readOnly}
+              disabled={lossFieldsDisabled}
               rows={1}
               placeholder="Reasons for loss..."
               className={cn(
@@ -180,6 +187,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
                   <button
                     key={p.label}
                     onClick={() => { insertPhrase(p.text); onBlur && onBlur(); }}
+                    disabled={!lossEditingEnabled}
                     className="text-[10px] px-1.5 py-0.5 rounded bg-secondary text-black hover:text-primary hover:bg-secondary/80 transition-colors border border-border"
                   >
                     {p.label}
@@ -230,7 +238,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
                     value={entry.lossDetails[col.key as LossKey] ?? ""}
                     onChange={(e) => handleLoss(col.key, e.target.value)}
                     onBlur={onBlur}
-                    disabled={readOnly}
+                    disabled={lossFieldsDisabled}
                     className="w-full bg-input border border-border rounded px-1.5 py-1 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
 
@@ -240,7 +248,7 @@ export function HMSRow({ entry, onChange, onBlur, saveStatus, readOnly = false }
                     value={entry.lossDetails[reasonKey] ?? ""}
                     onChange={(e) => handleLoss(reasonKey as string, e.target.value)}
                     onBlur={onBlur}
-                    disabled={readOnly}
+                    disabled={lossFieldsDisabled}
                     className="w-full bg-input border border-border rounded px-1.5 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-60 resize-none"
                     rows={2}
                   />

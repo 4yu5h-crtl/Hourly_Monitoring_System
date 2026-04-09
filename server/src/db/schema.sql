@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS hourly_entries (
 CREATE TABLE IF NOT EXISTS loss_details (
   id VARCHAR(36) PRIMARY KEY,
   hourly_entry_id VARCHAR(36) NOT NULL,
+  loss_machine VARCHAR(100),
   ct_loss INT,
   ct_loss_reason TEXT,
   start_loss INT,

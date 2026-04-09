@@ -3,7 +3,7 @@ import { ShiftSelector } from "@/components/ShiftSelector";
 import { HMSTable } from "@/components/HMSTable";
 import { SummaryPanel } from "@/components/SummaryPanel";
 import {
-  HourlyEntry, SaveStatus, ShiftLog,
+  HourlyEntry, SaveStatus, ShiftLog, CHANNEL_PLACEHOLDER_MACHINE,
 } from "@/types/hms";
 import {
   getOrCreateShiftLog, saveEntry, saveSummary, recalculate,
@@ -67,12 +67,13 @@ export default function DataEntryPage() {
 
   // Load / create log when params change
   useEffect(() => {
-    if (machine.trim() && channel.trim()) {
+    if (channel.trim()) {
       loadingRef.current = true;
+      const machineForShift = CHANNEL_PLACEHOLDER_MACHINE;
 
       // First, check if we have cached data in sessionStorage
       const cachedLog = getShiftLogFromSessionStorage();
-      const isCached = isCachedSessionValid(date, shiftId, machine, channel);
+      const isCached = isCachedSessionValid(date, shiftId, machineForShift, channel);
 
       if (isCached && cachedLog) {
         // Show cached data immediately
@@ -82,7 +83,7 @@ export default function DataEntryPage() {
         setIsFetchingFresh(true);
 
         // Fetch fresh data in background
-        getOrCreateShiftLog(date, shiftId, machine, channel)
+        getOrCreateShiftLog(date, shiftId, machineForShift, channel)
           .then((freshLog) => {
             if (loadingRef.current) {
               setLog(freshLog);
@@ -101,7 +102,7 @@ export default function DataEntryPage() {
         setIsLoading(true);
         setIsFetchingFresh(false);
 
-        getOrCreateShiftLog(date, shiftId, machine, channel)
+        getOrCreateShiftLog(date, shiftId, machineForShift, channel)
           .then((l) => {
             if (loadingRef.current) {
               setLog(l);
@@ -122,7 +123,7 @@ export default function DataEntryPage() {
       setIsLoading(false);
       setIsFetchingFresh(false);
     }
-  }, [date, shiftId, machine, channel]);
+  }, [date, shiftId, channel]);
 
   const actualProdHr = log?.summary.actualProdHr ?? null;
 
@@ -143,14 +144,14 @@ export default function DataEntryPage() {
       if (!log) return;
       setSaveStatus("saving");
       try {
-        await saveEntry(log.id, log.entries[index]);
+        await saveEntry(log.id, log.entries[index], machine.trim() || null);
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus("idle"), 2000);
       } catch {
         setSaveStatus("error");
       }
     },
-    [log]
+    [log, machine]
   );
 
   const handleSummaryChange = useCallback(
@@ -209,6 +210,7 @@ export default function DataEntryPage() {
               onEntryChange={handleEntryChange}
               onEntryBlur={handleEntryBlur}
               saveStatus={saveStatus}
+              selectedMachine={machine}
               summary={log.summary}
               onSummaryChange={handleSummaryChange}
               onSummaryBlur={handleSummaryBlur}
@@ -230,7 +232,7 @@ export default function DataEntryPage() {
           <p className="text-muted-foreground text-sm font-medium">
             {isLoading 
               ? "Loading..." 
-              : "Please enter Machine and Channel to load the production data."}
+              : "Please select Channel to load the production data."}
           </p>
         </div>
       )}

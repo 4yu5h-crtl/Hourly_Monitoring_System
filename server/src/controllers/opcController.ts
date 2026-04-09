@@ -1,7 +1,7 @@
 ﻿import { Request, Response } from 'express';
-import { OPCUAClient, AttributeIds } from 'node-opcua';
+import { OPCUAClient } from 'node-opcua';
 
-export const getCumQty = async (req: Request, res: Response) => {
+export const getCumQty = async (_req: Request, res: Response) => {
   const endpointUrl = "opc.tcp://INPUN4CE403CJ6W.corp.skf.net:49320";
   const nodeId = "ns=2;s=Control Room.PLC_1.CH02_OEE.CH_02_LASER_PIECE_COUNT";
 

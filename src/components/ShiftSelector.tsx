@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { SHIFTS } from "@/types/hms";
 import { cn } from "@/lib/utils";
+import { CHANNEL_OPTIONS, getMachinesForChannel } from "@/lib/channelMachines";
 import skfLogo from "@/assets/skf-logo.png";
 
 interface ShiftSelectorProps {
@@ -20,6 +21,7 @@ export function ShiftSelector({
 }: ShiftSelectorProps) {
   const [localMachine, setLocalMachine] = useState(machine);
   const [localChannel, setLocalChannel] = useState(channel);
+  const machineOptions = getMachinesForChannel(localChannel);
 
   useEffect(() => {
     setLocalMachine(machine);
@@ -28,6 +30,21 @@ export function ShiftSelector({
   useEffect(() => {
     setLocalChannel(channel);
   }, [channel]);
+
+  useEffect(() => {
+    if (!localChannel) {
+      setLocalMachine("");
+      onMachineChange("");
+      return;
+    }
+
+    const availableMachines = getMachinesForChannel(localChannel);
+    const machineStillValid = availableMachines.some((m) => m.value === localMachine);
+    if (!machineStillValid) {
+      setLocalMachine("");
+      onMachineChange("");
+    }
+  }, [localChannel, localMachine, onMachineChange]);
 
   const inputClass = "bg-input border border-border rounded-md px-3 py-2 text-sm font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary";
 
@@ -55,26 +72,44 @@ export function ShiftSelector({
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Machine</label>
-          <input
-            type="text"
+          <select
             value={localMachine}
-            onChange={(e) => setLocalMachine(e.target.value)}
-            onBlur={() => onMachineChange(localMachine)}
-            placeholder="e.g. CNC-01"
+            onChange={(e) => {
+              const nextMachine = e.target.value;
+              setLocalMachine(nextMachine);
+              onMachineChange(nextMachine);
+            }}
+            disabled={!localChannel || machineOptions.length === 0}
             className={inputClass}
-          />
+          >
+            <option value="">Select machine</option>
+            {machineOptions.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          {localChannel && machineOptions.length === 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              No machines configured for this channel yet.
+            </p>
+          )}
         </div>
 
         <div className="flex flex-col gap-1">
           <label className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Channel</label>
-          <input
-            type="text"
+          <select
             value={localChannel}
-            onChange={(e) => setLocalChannel(e.target.value)}
-            onBlur={() => onChannelChange(localChannel)}
-            placeholder="e.g. CH-1"
+            onChange={(e) => {
+              const nextChannel = e.target.value;
+              setLocalChannel(nextChannel);
+              onChannelChange(nextChannel);
+            }}
             className={inputClass}
-          />
+          >
+            <option value="">Select channel</option>
+            {CHANNEL_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </div>
 
         <div className="flex flex-col gap-1">

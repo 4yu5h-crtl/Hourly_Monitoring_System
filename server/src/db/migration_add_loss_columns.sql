@@ -12,6 +12,7 @@ ALTER TABLE hourly_entries ADD COLUMN IF NOT EXISTS std_variance INT AFTER hrly_
 
 -- Add new value columns if they don't exist
 ALTER TABLE loss_details
+ADD COLUMN IF NOT EXISTS loss_machine VARCHAR(100) AFTER hourly_entry_id,
 ADD COLUMN IF NOT EXISTS mech_maintenance INT AFTER start_loss,
 ADD COLUMN IF NOT EXISTS elect_maintenance INT AFTER mech_maintenance,
 ADD COLUMN IF NOT EXISTS machine_adjustment INT AFTER reset,

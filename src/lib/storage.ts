@@ -182,7 +182,7 @@ export async function getOrCreateShiftLog(
   return shiftLog;
 }
 
-export async function saveEntry(logId: string, entry: HourlyEntry): Promise<void> {
+export async function saveEntry(logId: string, entry: HourlyEntry, selectedMachine: string | null): Promise<void> {
   const lossDetails = entry.lossDetails;
 
   // Update entry in MySQL - send input and calculated fields
@@ -194,39 +194,42 @@ export async function saveEntry(logId: string, entry: HourlyEntry): Promise<void
     edited: entry.edited,
   });
 
-  // Update loss details in MySQL
-  await api.updateLossDetails(entry.id, {
-    ct_loss: lossDetails.ct_loss,
-    ct_loss_reason: lossDetails.ct_loss_reason,
-    start_loss: lossDetails.start_loss,
-    start_loss_reason: lossDetails.start_loss_reason,
-    mech_maintenance: lossDetails.mech_maintenance,
-    mech_maintenance_reason: lossDetails.mech_maintenance_reason,
-    elect_maintenance: lossDetails.elect_maintenance,
-    elect_maintenance_reason: lossDetails.elect_maintenance_reason,
-    reset: lossDetails.reset,
-    reset_reason: lossDetails.reset_reason,
-    machine_adjustment: lossDetails.machine_adjustment,
-    machine_adjustment_reason: lossDetails.machine_adjustment_reason,
-    supplier: lossDetails.supplier,
-    supplier_reason: lossDetails.supplier_reason,
-    shared_operation: lossDetails.shared_operation,
-    shared_operation_reason: lossDetails.shared_operation_reason,
-    tool: lossDetails.tool,
-    tool_reason: lossDetails.tool_reason,
-    spindle_service: lossDetails.spindle_service,
-    spindle_service_reason: lossDetails.spindle_service_reason,
-    wheel_change: lossDetails.wheel_change,
-    wheel_change_reason: lossDetails.wheel_change_reason,
-    operator: lossDetails.operator,
-    operator_reason: lossDetails.operator_reason,
-    plan_stop: lossDetails.plan_stop,
-    plan_stop_reason: lossDetails.plan_stop_reason,
-    quality: lossDetails.quality,
-    quality_reason: lossDetails.quality_reason,
-    system_loss: lossDetails.system,
-    system_reason: lossDetails.system_reason,
-  });
+  // Persist machine-attributed loss only when a machine is selected.
+  if (selectedMachine) {
+    await api.updateLossDetails(entry.id, {
+      loss_machine: selectedMachine,
+      ct_loss: lossDetails.ct_loss,
+      ct_loss_reason: lossDetails.ct_loss_reason,
+      start_loss: lossDetails.start_loss,
+      start_loss_reason: lossDetails.start_loss_reason,
+      mech_maintenance: lossDetails.mech_maintenance,
+      mech_maintenance_reason: lossDetails.mech_maintenance_reason,
+      elect_maintenance: lossDetails.elect_maintenance,
+      elect_maintenance_reason: lossDetails.elect_maintenance_reason,
+      reset: lossDetails.reset,
+      reset_reason: lossDetails.reset_reason,
+      machine_adjustment: lossDetails.machine_adjustment,
+      machine_adjustment_reason: lossDetails.machine_adjustment_reason,
+      supplier: lossDetails.supplier,
+      supplier_reason: lossDetails.supplier_reason,
+      shared_operation: lossDetails.shared_operation,
+      shared_operation_reason: lossDetails.shared_operation_reason,
+      tool: lossDetails.tool,
+      tool_reason: lossDetails.tool_reason,
+      spindle_service: lossDetails.spindle_service,
+      spindle_service_reason: lossDetails.spindle_service_reason,
+      wheel_change: lossDetails.wheel_change,
+      wheel_change_reason: lossDetails.wheel_change_reason,
+      operator: lossDetails.operator,
+      operator_reason: lossDetails.operator_reason,
+      plan_stop: lossDetails.plan_stop,
+      plan_stop_reason: lossDetails.plan_stop_reason,
+      quality: lossDetails.quality,
+      quality_reason: lossDetails.quality_reason,
+      system_loss: lossDetails.system,
+      system_reason: lossDetails.system_reason,
+    });
+  }
 
   // Update sessionStorage with latest data
   const log = getShiftLogFromSessionStorage();

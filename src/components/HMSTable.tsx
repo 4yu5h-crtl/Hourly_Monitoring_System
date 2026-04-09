@@ -7,6 +7,7 @@ interface HMSTableProps {
   onEntryChange: (index: number, entry: HourlyEntry) => void;
   onEntryBlur?: (index: number) => void;
   saveStatus: SaveStatus;
+  selectedMachine?: string;
   readOnly?: boolean;
   summary?: ProductionSummary;
   onSummaryChange?: (summary: ProductionSummary) => void;
@@ -15,9 +16,10 @@ interface HMSTableProps {
 }
 
 export function HMSTable({ 
-  entries, onEntryChange, onEntryBlur, saveStatus, readOnly,
+  entries, onEntryChange, onEntryBlur, saveStatus, selectedMachine, readOnly,
   summary, onSummaryChange, onSummaryBlur, shiftId = 1
 }: HMSTableProps) {
+  const lossEditingEnabled = Boolean(selectedMachine?.trim());
 
   const shiftHours = shiftId === 1 ? "8.5" : shiftId === 2 ? "8.2" : "7.3";
 
@@ -45,9 +47,16 @@ export function HMSTable({
           onChange={(updated) => onEntryChange(i, updated)}
           onBlur={onEntryBlur ? () => onEntryBlur(i) : undefined}
           saveStatus={saveStatus}
+          lossEditingEnabled={lossEditingEnabled}
           readOnly={readOnly}
         />
       ))}
+
+      {!lossEditingEnabled && (
+        <div className="px-3 py-2 text-xs text-amber-700 bg-amber-50 border-t border-amber-200">
+          Select a machine to enable loss details and loss reason entry.
+        </div>
+      )}
 
       {/* Summary Bottom Rows */}
       {summary && onSummaryChange && (

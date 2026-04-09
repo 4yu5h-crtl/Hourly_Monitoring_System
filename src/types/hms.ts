@@ -137,6 +137,8 @@ export interface ShiftLog {
   summary: ProductionSummary;
 }
 
+export const CHANNEL_PLACEHOLDER_MACHINE = "__CHANNEL_LEVEL__";
+
 export type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export const QUICK_INSERT_PHRASES = [
@@ -150,10 +152,36 @@ export const QUICK_INSERT_PHRASES = [
 
 export function createEmptyLossDetails(): LossDetails {
   return {
-    ct_loss: null, start_loss: null, maintenance: null, reset: null,
-    material: null, supplier: null, tool: null, spindle_service: null,
-    wheel_change: null, operator: null, plan_stop: null, quality: null,
+    ct_loss: null,
+    ct_loss_reason: "",
+    start_loss: null,
+    start_loss_reason: "",
+    mech_maintenance: null,
+    mech_maintenance_reason: "",
+    elect_maintenance: null,
+    elect_maintenance_reason: "",
+    reset: null,
+    reset_reason: "",
+    machine_adjustment: null,
+    machine_adjustment_reason: "",
+    supplier: null,
+    supplier_reason: "",
+    shared_operation: null,
+    shared_operation_reason: "",
+    tool: null,
+    tool_reason: "",
+    spindle_service: null,
+    spindle_service_reason: "",
+    wheel_change: null,
+    wheel_change_reason: "",
+    operator: null,
+    operator_reason: "",
+    plan_stop: null,
+    plan_stop_reason: "",
+    quality: null,
+    quality_reason: "",
     system: null,
+    system_reason: "",
   };
 }
 
