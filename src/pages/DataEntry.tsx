@@ -152,18 +152,18 @@ export default function DataEntryPage() {
     }
   }, [date, shiftId, machine, channel]);
 
-  const actualProdHr = log?.summary.actualProdHr ?? null;
+  const stdProdHr = log?.summary.stdProdHr ?? null;
 
   const handleEntryChange = useCallback(
     (index: number, entry: HourlyEntry) => {
       if (!log) return;
       const newEntries = [...log.entries];
       newEntries[index] = entry;
-      const recalced = recalculate(newEntries, actualProdHr);
+      const recalced = recalculate(newEntries, stdProdHr);
       const newLog = { ...log, entries: recalced };
       setLog(newLog);
     },
-    [log, actualProdHr]
+    [log, stdProdHr]
   );
 
   const handleEntryBlur = useCallback(
@@ -187,8 +187,8 @@ export default function DataEntryPage() {
   const handleSummaryChange = useCallback(
     (summary: typeof log extends ShiftLog ? ShiftLog["summary"] : never) => {
       if (!log) return;
-      // Recalculate entries if actualProdHr changed
-      const recalced = recalculate(log.entries, summary.actualProdHr);
+      // Recalculate entries if stdProdHr changed
+      const recalced = recalculate(log.entries, summary.stdProdHr);
       setLog({ ...log, summary, entries: recalced });
     },
     [log]

@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../db/connection.js';
+import { recalculateShiftMetrics } from './entriesController.js';
 
 export const updateSummary = async (req: Request, res: Response) => {
   try {
@@ -57,6 +58,10 @@ export const updateSummary = async (req: Request, res: Response) => {
         `INSERT INTO production_summary (${insertFields.join(', ')}) VALUES (${insertFields.map(() => '?').join(', ')})`,
         insertValues
       );
+    }
+
+    if (summaryData.std_prod_hr !== undefined) {
+      await recalculateShiftMetrics(shift_log_id);
     }
 
     res.json({ success: true, shift_log_id });

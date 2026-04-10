@@ -137,3 +137,53 @@ export const getEntries = async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 };
+
+export const recalculateShiftMetrics = async (shiftLogId: string) => {
+  const connection = await pool.getConnection();
+  try {
+    await connection.beginTransaction();
+
+    const [entries] = await connection.execute(
+      'SELECT id, cum_qty FROM hourly_entries WHERE shift_log_id = ? ORDER BY created_at ASC',
+      [shiftLogId]
+    ) as any[];
+
+    const [summary] = await connection.execute(
+      'SELECT std_prod_hr FROM production_summary WHERE shift_log_id = ?',
+      [shiftLogId]
+    ) as any[];
+
+    const stdProdHr = summary[0]?.std_prod_hr ?? null;
+
+    for (let i = 0; i < entries.length; i++) {
+      const entry = entries[i];
+      let hrlyQty = null;
+      let stdVariance = null;
+
+      if (entry.cum_qty !== null && entry.cum_qty !== undefined) {
+        if (i === 0) {
+          hrlyQty = entry.cum_qty;
+        } else {
+          const prev = entries[i - 1];
+          hrlyQty = (prev.cum_qty !== null && prev.cum_qty !== undefined) ? entry.cum_qty - prev.cum_qty : entry.cum_qty;
+        }
+
+        if (stdProdHr !== null && stdProdHr !== undefined && hrlyQty !== null) {
+          stdVariance = hrlyQty - stdProdHr;
+        }
+      }
+
+      await connection.execute(
+        'UPDATE hourly_entries SET hrly_qty = ?, std_variance = ? WHERE id = ?',
+        [hrlyQty, stdVariance, entry.id]
+      );
+    }
+
+    await connection.commit();
+  } catch (error) {
+    await connection.rollback();
+    console.error('Failed to recalculate shift metrics:', error);
+  } finally {
+    connection.release();
+  }
+};

@@ -2,6 +2,7 @@
 import { OPCUAClient } from 'node-opcua';
 import { query, getConnection } from '../db/connection.js';
 import { v4 as uuidv4 } from 'uuid';
+import { recalculateShiftMetrics } from './entriesController.js';
 import 'dotenv/config.js';
 
 const CH02_ENDPOINT_URL = process.env.OPC_CH02_ENDPOINT_URL || '';
@@ -143,6 +144,12 @@ export const processKepwareSync = async (machine: string = 'Control Room', chann
       'UPDATE hourly_entries SET cum_qty = ?, edited = TRUE, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
       [read.value, entryId]
     );
+
+    // After updating cumulative quantity, securely trigger mathematical 
+    // realignment of target hrly_qty and std_variance for the entire shift
+    if (shiftLogId) {
+      await recalculateShiftMetrics(shiftLogId);
+    }
 
     return {
       success: true,

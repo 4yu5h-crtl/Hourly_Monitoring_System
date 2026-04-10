@@ -351,7 +351,7 @@ function convertApiLogToShiftLog(apiLog: any): ShiftLog {
   };
 }
 
-export function recalculate(entries: HourlyEntry[], actualProdHr: number | null): HourlyEntry[] {
+export function recalculate(entries: HourlyEntry[], stdProdHr: number | null): HourlyEntry[] {
   return entries.map((entry, i) => {
     // Calculate hourly qty from cumulative
     let hrlyQty: number | null = null;
@@ -363,8 +363,8 @@ export function recalculate(entries: HourlyEntry[], actualProdHr: number | null)
         hrlyQty = prev.cumQty !== null ? entry.cumQty - prev.cumQty : entry.cumQty;
       }
     }
-    // Calculate std variance as difference from actual production per hour
-    const stdVariance = (hrlyQty !== null && actualProdHr !== null) ? hrlyQty - actualProdHr : null;
+    // Calculate std variance as difference from std production per hour
+    const stdVariance = (hrlyQty !== null && stdProdHr !== null) ? hrlyQty - stdProdHr : null;
     return { ...entry, hrlyQty, stdVariance };
   });
 }
